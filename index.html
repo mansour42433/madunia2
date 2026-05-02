@@ -311,7 +311,8 @@ INV4721
 
 <script>
 // --- إعدادات النظام ---
-const API_URL = "/api/get-data"; 
+const API_URL = "/api/get-data";
+const DASHBOARD_TOKEN = ""; // ← ضع هنا نفس قيمة DASHBOARD_SECRET في Vercel
 const TARGET_SKU_FALLBACK = "754500950512";
 const STORAGE = { 
     INVOICES:"sys_inv_v8", 
@@ -349,7 +350,8 @@ async function fetchData(){
     const btn=document.getElementById("upBtn"),st=document.getElementById("status");
     btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> جاري الجلب...';
     try{
-        const r=await fetch(API_URL);
+        const fetchHeaders = {}; if(DASHBOARD_TOKEN) fetchHeaders['X-Dashboard-Token'] = DASHBOARD_TOKEN;
+        const r=await fetch(API_URL, { headers: fetchHeaders });
         const d=await r.json();
         if(!r.ok) throw new Error(d.error || "Server Error");
         
