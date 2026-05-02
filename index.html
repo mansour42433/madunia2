@@ -148,6 +148,9 @@ button.proc-reset { background:#e67e22; }
         <button class="tab" id="tab-expenses" onclick="switchTab('expenses')"><i class="fas fa-gas-pump"></i> المصروفات<span id="badge-expenses" class="tab-badge">0</span></button>
         <button class="tab" id="tab-nicks" onclick="switchTab('nicks')"><i class="fas fa-user-tag"></i> المناديب</button>
         <button class="tab" id="tab-history" onclick="switchTab('history')"><i class="fas fa-history"></i> الأرشيف</button>
+        <button class="tab" id="tab-requests" onclick="switchTab('requests')" style="color:#e67e22; border-bottom-color:transparent;">
+            <i class="fas fa-bell"></i> طلبات المناديب <span id="badge-requests" class="tab-badge" style="background:#e67e22; color:#fff">0</span>
+        </button>
     </div>
 
     <div class="table-responsive" id="mainContainer">
@@ -184,6 +187,22 @@ button.proc-reset { background:#e67e22; }
         <div id="nicksDiv" style="display:none; padding:20px;"><h3>تخصيص أسماء المناديب</h3><div id="nickRows"></div></div>
         
         <div id="historyDiv" style="display:none; padding:20px;"><h3 style="color:var(--p)">سجل المديونيات المحفوظة</h3><div id="historyList"></div></div>
+
+        <div id="requestsDiv" style="display:none; padding:20px;">
+            <h3 style="color:#e67e22"><i class="fas fa-exclamation-circle"></i> تعديلات بانتظار الاعتماد</h3>
+            <table style="width:100%">
+                <thead>
+                    <tr>
+                        <th>المرجع</th>
+                        <th>العميل</th>
+                        <th>المبلغ القديم</th>
+                        <th style="color:#27ae60">المبلغ المطلوب</th>
+                        <th style="text-align:center">الإجراء</th>
+                    </tr>
+                </thead>
+                <tbody id="requestsRows"></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -1044,6 +1063,84 @@ function exportFromProcessing() {
     const stats = { debt: totalDebtExport, expenses: totalExp, net, pending: totalPending, adjNet, adjPlus, adjMinus };
     generateColoredExcel(creatorName, exportDebtInvs, filteredExpenses, filteredAdjustments, delayedInvoices, allPendingForExport, stats, dateStr);
 }
+
+// --- نظام إدارة طلبات المناديب ---
+async function fetchPendingRequests() {
+    try {
+        const res = await fetch('/api/admin_get_requests');
+        const requests = await res.json();
+        
+        document.getElementById("badge-requests").innerText = requests.length;
+        const tbody = document.getElementById("requestsRows");
+        tbody.innerHTML = "";
+
+        if (requests.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#999">لا توجد طلبات تعديل معلقة حالياً</td></tr>`;
+            return;
+        }
+
+        requests.forEach(req => {
+            const inv = req.invoices; // البيانات المرتبطة بالفاتورة
+            tbody.innerHTML += `
+            <tr id="req-row-${req.id}">
+                <td style="font-weight:bold; color:var(--p)">${inv.ref_number}</td>
+                <td>${inv.customer_name}</td>
+                <td style="color:#c0392b; text-decoration:line-through">${inv.due_amount}</td>
+                <td style="font-weight:bold; color:#27ae60; font-size:1.1em">${req.requested_due_amount}</td>
+                <td style="text-align:center">
+                    <button onclick="handleRequest(${req.id}, ${inv.id}, ${req.requested_due_amount}, 'approve')" style="background:#27ae60; padding:8px 15px; margin-left:5px"><i class="fas fa-check"></i> اعتماد</button>
+                    <button onclick="handleRequest(${req.id}, ${inv.id}, ${req.requested_due_amount}, 'reject')" style="background:#c0392b; padding:8px 15px"><i class="fas fa-times"></i> رفض</button>
+                </td>
+            </tr>`;
+        });
+    } catch (e) {
+        console.error("Error fetching requests:", e);
+    }
+}
+
+async function handleRequest(reqId, invId, newAmount, action) {
+    if (!confirm(action === 'approve' ? 'هل أنت متأكد من اعتماد هذا التعديل؟' : 'هل أنت متأكد من رفض الطلب؟')) return;
+    
+    // تغيير شكل الزر أثناء التحميل
+    const row = document.getElementById(`req-row-${reqId}`);
+    row.style.opacity = "0.5";
+
+    await fetch('/api/admin_action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ request_id: reqId, invoice_id: invId, new_amount: newAmount, action: action })
+    });
+
+    // تحديث الشاشة بعد الاعتماد
+    fetchPendingRequests();
+    fetchData(); // لجلب الفواتير المحدثة
+}
+
+// دمج التبويب الجديد مع الدالة القديمة
+const originalSwitchTab = switchTab;
+switchTab = function(tab) {
+    document.getElementById("requestsDiv").style.display = 'none';
+    if (tab === 'requests') {
+        currentTab = tab;
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.getElementById("tab-requests").classList.add("active");
+        
+        // إخفاء كل شيء وإظهار شاشة الطلبات
+        document.getElementById("tbl").style.display = 'none';
+        document.getElementById("expensesDiv").style.display = 'none';
+        document.getElementById("adjustmentsDiv").style.display = 'none';
+        document.getElementById("nicksDiv").style.display = 'none';
+        document.getElementById("historyDiv").style.display = 'none';
+        document.getElementById("requestsDiv").style.display = 'block';
+        
+        fetchPendingRequests(); // جلب الطلبات عند فتح التبويب
+    } else {
+        originalSwitchTab(tab);
+    }
+};
+
+// تشغيل جلب الطلبات عند فتح الموقع
+setTimeout(fetchPendingRequests, 2000);
 
 // تشغيل النظام
 init();
