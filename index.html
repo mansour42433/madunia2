@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام التقرير الشامل (نسخة احترافية ديناميكية)</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<style>
+/* التنسيقات العامة */
+:root{--p:#2980b9;--d:#2c3e50;--r:#c0392b;--g:#27ae60;--o:#f39c12;--bg:#f4f6f9; --pending:#8e44ad; --adj:#16a085;}
+body{font-family:'Cairo', sans-serif; background:var(--bg); padding:20px; color: var(--d); padding-bottom: 120px;}
+.box{background:#fff;padding:25px;border-radius:15px;max-width:1400px;margin:auto;box-shadow: 0 4px 20px rgba(0,0,0,0.05)}
+h2{margin-top:0; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center}
+
+/* البطاقات والإحصائيات */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:25px}
+.card{padding:20px;border-radius:12px;color:#fff;text-align:center;position: relative; overflow: hidden;}
+.card h3 {margin: 0 0 10px; font-size: 1rem; opacity: 0.9;}
+.card-val {font-size: 1.8em; font-weight: bold;}
+.card i {position: absolute; top: 10px; left: 10px; opacity: 0.2; font-size: 3em;}
+
+/* عناصر التحكم والأزرار */
+.controls{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;align-items:center; background: #f8f9fa; padding: 15px; border-radius: 10px;}
+input,select,button{padding:10px 15px;border-radius:8px;border:1px solid #ddd; font-family: 'Cairo'; font-weight: 600; outline: none;}
+button{background:var(--d);color:#fff;border:none;cursor:pointer;transition:0.2s; display: inline-flex; align-items: center; gap: 8px;}
+button:hover{transform: translateY(-2px);}
+button.refresh {background: var(--p);}
+button.save-archive {background: #8e44ad; width: 100%; justify-content: center; font-size: 1.1em; margin-top: 5px;}
+button.export-all {background: #27ae60; width: 100%; justify-content: center; font-size: 1.1em; margin-top: 5px;}
+
+/* التبويبات */
+.tabs{display:flex;gap:10px;margin-bottom:0; border-bottom: 1px solid #ddd; overflow-x: auto;}
+.tab{padding:12px 25px;background:transparent;border:none;border-bottom: 3px solid transparent; cursor:pointer; font-weight: 700; color: #7f8c8d; min-width: 120px; transition: 0.3s;}
+.tab:hover {color: var(--p);}
+.tab.active{color:var(--p);border-bottom-color:var(--p); background: rgba(41, 128, 185, 0.05);}
+.tab-badge {background: #eee; color: #555; padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin-right: 5px;}
+
+/* الجداول */
+.table-responsive {overflow-x: auto; background: #fff; border-radius: 0 0 15px 15px; border: 1px solid #ddd; border-top: none; min-height: 300px;}
+table{width:100%;border-collapse:collapse; min-width:1000px;}
+th{background:#f8f9fa;color:var(--d);padding:15px; text-align: right; font-weight: 700;}
+td{padding:12px 15px;border-bottom: 1px solid #eee; vertical-align: middle;}
+
+/* الوسوم الملونة */
+.tag {padding: 4px 10px; border-radius: 20px; font-size: 0.85em; font-weight: bold;}
+.tag-delayed {background: #e8f6fd; color: var(--p);}
+.tag-cash {background: #eafaf1; color: var(--g);}
+.tag-debt {background: #fdeaea; color: var(--r);}
+.tag-pending {background: #f3e5f5; color: var(--pending);}
+.tag-part {background: #fff3cd; color: #856404;}
+
+/* الشريط العائم */
+.floating-bar {position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--d); color: #fff; padding: 15px 30px; border-radius: 50px; display: flex; align-items: center; gap: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 1000; transition: 0.4s; opacity: 0;}
+.floating-bar.show {transform: translateX(-50%) translateY(0); opacity: 1;}
+
+/* النماذج */
+.expense-form, .adj-form {display: flex; gap: 10px; background: #fff5f5; padding: 15px; border-radius: 8px; align-items: end; margin-bottom: 15px;}
+.adj-form {background: #e8f8f5;}
+.form-group {flex: 1;}
+.form-group label {display: block; font-size: 0.8em; margin-bottom: 5px; color: #555;}
+.history-item {border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; background: #fdfdfd;}
+
+/* المودال */
+.modal {display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); animation: fadeIn 0.3s;}
+.modal-content {background-color: #fefefe; margin: 5% auto; padding: 0; border-radius: 15px; width: 90%; max-width: 600px; box-shadow: 0 10px 50px rgba(0,0,0,0.3); animation: slideDown 0.3s;}
+.modal-header {padding: 20px; background: var(--o); color: white; border-radius: 15px 15px 0 0; display: flex; justify-content: space-between; align-items: center;}
+.modal-header h3 {margin: 0; display: flex; align-items: center; gap: 10px;}
+.modal-close {color: white; font-size: 28px; font-weight: bold; cursor: pointer; background: none; border: none; padding: 0; width: 35px; height: 35px; border-radius: 50%; transition: 0.3s;}
+.modal-close:hover {background: rgba(255,255,255,0.2);}
+.modal-body {padding: 25px;}
+.modal-footer {padding: 15px 25px; background: #f8f9fa; border-radius: 0 0 15px 15px; display: flex; gap: 10px; justify-content: flex-end;}
+@keyframes fadeIn {from {opacity: 0;} to {opacity: 1;}}
+@keyframes slideDown {from {transform: translateY(-50px); opacity: 0;} to {transform: translateY(0); opacity: 1;}}
+
+/* صفحة المعالجة */
+#processingPage { display:none; }
+.proc-box { background:#fff; padding:25px; border-radius:15px; max-width:1400px; margin:auto; box-shadow:0 4px 20px rgba(0,0,0,0.05); }
+.proc-header { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #eee; padding-bottom:15px; margin-bottom:20px; }
+.proc-header h2 { margin:0; color:var(--d); display:flex; align-items:center; gap:10px; }
+.proc-table-wrap { overflow-x:auto; border-radius:10px; border:1px solid #ddd; }
+.proc-table { width:100%; border-collapse:collapse; min-width:900px; }
+.proc-table th { background:#2c3e50; color:#fff; padding:14px 12px; text-align:right; font-size:0.95em; position:sticky; top:0; }
+.proc-table td { padding:11px 12px; border-bottom:1px solid #eee; vertical-align:middle; }
+.proc-table tr:hover { background:#f8f9ff; }
+.proc-table tr.edited { background:#fffbe6 !important; }
+.proc-table tr.edited:hover { background:#fff5cc !important; }
+.proc-amount-input { width:120px; padding:7px 10px; border:2px solid #ddd; border-radius:6px; font-family:'Cairo'; font-size:1em; font-weight:bold; text-align:center; transition:0.2s; }
+.proc-amount-input:focus { border-color:var(--p); outline:none; box-shadow:0 0 0 3px rgba(41,128,185,0.15); }
+.proc-amount-input.changed { border-color:#f39c12; background:#fffbe6; }
+.proc-diff-cell { font-weight:bold; color:#8e44ad; font-size:0.95em; }
+.proc-diff-cell.zero { color:#aaa; }
+.proc-summary { background:#f8f9fa; border-radius:10px; padding:20px; margin-top:20px; display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:15px; }
+.proc-sum-card { background:#fff; padding:15px; border-radius:8px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+.proc-sum-card .label { font-size:0.85em; color:#7f8c8d; margin-bottom:5px; }
+.proc-sum-card .val { font-size:1.6em; font-weight:bold; }
+.proc-actions { display:flex; gap:12px; margin-top:20px; }
+.proc-actions button { flex:1; padding:14px; font-size:1.05em; justify-content:center; }
+button.proc-export { background:#27ae60; }
+button.proc-back { background:#95a5a6; }
+button.proc-reset { background:#e67e22; }
+.filter-active-badge { display:inline-block; background:#e74c3c; color:#fff; border-radius:50%; width:18px; height:18px; font-size:0.75em; text-align:center; line-height:18px; margin-right:3px; }
+</style>
+</head>
+<body>
+
+<div class="box">
+    <h2><span><i class="fas fa-file-invoice-dollar"></i> نظام التقارير والمديونية</span></h2>
+    
+    <div class="controls">
+        <button onclick="fetchData()" id="upBtn" class="refresh"><i class="fas fa-sync-alt"></i> تحديث البيانات</button>
+        <span id="status" style="margin-right: 10px; font-weight: bold; color: var(--p);"></span>
+        <div style="margin-right: auto; display:flex; gap:10px;">
+            <select id="creatorFilter" onchange="handleFilterChange()"><option value="all">كل المناديب</option></select>
+            <input id="searchInput" placeholder="بحث بالمرجع أو العميل..." onkeyup="renderCurrentTab()">
+            <button onclick="openInvoiceFilter()" style="background:var(--o)" id="filterBtn"><i class="fas fa-filter"></i> فلترة متقدمة</button>
+                <button onclick="clearInvoiceFilter()" id="clearFilterBtn" style="background:#c0392b; display:none"><i class="fas fa-times-circle"></i> مسح التصفية</button>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="card" style="background:var(--r)"><i class="fas fa-wallet"></i><h3>المديونية (فواتير)</h3><span id="stat-debt" class="card-val">0</span></div>
+        <div class="card" style="background:#16a085"><i class="fas fa-sliders-h"></i><h3>صافي التسويات</h3><span id="stat-adj" class="card-val">0</span></div>
+        <div class="card" style="background:#c0392b"><i class="fas fa-minus-circle"></i><h3>المصروفات</h3><span id="stat-expense" class="card-val">0</span></div>
+        <div class="card" style="background:var(--d)"><i class="fas fa-calculator"></i><h3>الصافي النهائي</h3><span id="stat-net" class="card-val">0</span></div>
+        <div class="card" style="background:var(--pending);"><i class="fas fa-exchange-alt"></i><h3>بانتظار التحويل</h3><span id="stat-pending" class="card-val">0</span></div>
+        <div class="card" style="background:var(--p); opacity: 0.8;"><i class="fas fa-star"></i><h3>آجل (للمعلومة)</h3><span id="stat-delayed" class="card-val">0</span></div>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+        <button onclick="exportToExcel(false)" class="export-all"><i class="fas fa-file-excel"></i> تصدير Excel (ديناميكي بالمعادلات)</button>
+        <button onclick="openProcessingPage()" style="background:#16a085; flex:0 0 auto; padding:12px 20px; font-size:1em; display:inline-flex; align-items:center; gap:8px; border-radius:8px; margin-top:5px"><i class="fas fa-table"></i> معالجة ← التالي</button>
+        <button onclick="saveToHistory()" class="save-archive"><i class="fas fa-save"></i> حفظ المديونية للأرشيف</button>
+    </div>
+    <br>
+
+    <div class="tabs">
+        <button class="tab active" id="tab-delayed" onclick="switchTab('delayed')"><i class="fas fa-star"></i> الآجلة<span id="badge-delayed" class="tab-badge">0</span></button>
+        <button class="tab" id="tab-cash" onclick="switchTab('cash')"><i class="fas fa-wallet"></i> نقدية<span id="badge-cash" class="tab-badge">0</span></button>
+        <button class="tab" id="tab-debt" onclick="switchTab('debt')"><i class="fas fa-file-invoice-dollar"></i> المديونية<span id="badge-debt" class="tab-badge">0</span></button>
+        <button class="tab" id="tab-pending" onclick="switchTab('pending')" style="color:var(--pending); border-bottom-color:transparent;"><i class="fas fa-exchange-alt"></i> بانتظار التحويل<span id="badge-pending" class="tab-badge">0</span></button>
+        <button class="tab" id="tab-adjustments" onclick="switchTab('adjustments')" style="color:var(--adj); border-bottom-color:transparent;"><i class="fas fa-sliders-h"></i> مبالغ مخصصة<span id="badge-adjustments" class="tab-badge">0</span></button>
+        <button class="tab" id="tab-expenses" onclick="switchTab('expenses')"><i class="fas fa-gas-pump"></i> المصروفات<span id="badge-expenses" class="tab-badge">0</span></button>
+        <button class="tab" id="tab-nicks" onclick="switchTab('nicks')"><i class="fas fa-user-tag"></i> المناديب</button>
+        <button class="tab" id="tab-history" onclick="switchTab('history')"><i class="fas fa-history"></i> الأرشيف</button>
+    </div>
+
+    <div class="table-responsive" id="mainContainer">
+        
+        <table id="tbl">
+            <thead id="tblHead">
+                <tr>
+                    <th style="width: 40px"><input type="checkbox" onchange="toggleAll(this)"></th>
+                    <th>المرجع</th><th>العميل</th><th>المندوب</th><th>التاريخ</th><th style="color:#c0392b">ت. الاستحقاق</th><th>التصنيف</th><th>المبلغ المتبقي</th><th>الحالة</th>
+                </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+        </table>
+
+        <div id="expensesDiv" style="display:none; padding:20px;">
+            <div class="expense-form">
+                <div class="form-group"><label>الوصف</label><input id="expDesc" type="text" placeholder="بنزين، ديزل..."></div>
+                <div class="form-group"><label>المبلغ</label><input id="expAmount" type="number" placeholder="0"></div>
+                <div class="form-group"><button onclick="addExpense()" style="background:#c0392b; width:100%; justify-content:center"><i class="fas fa-plus"></i> إضافة مصروف</button></div>
+            </div>
+            <table style="width:100%"><thead id="expHead"><tr><th>الوصف</th><th>المندوب</th><th>التاريخ</th><th>المبلغ</th><th>حذف</th></tr></thead><tbody id="expenseRows"></tbody></table>
+        </div>
+
+        <div id="adjustmentsDiv" style="display:none; padding:20px;">
+            <div class="adj-form">
+                <div class="form-group" style="flex:2"><label>سبب المبلغ</label><input id="adjDesc" type="text" placeholder="مثلاً: عجز في التحويل، زيادة مدفوعة..."></div>
+                <div class="form-group"><label>نوع العملية</label><select id="adjType" style="width:100%; direction:rtl"><option value="plus">➕ إضافة على المديونية (عليك)</option><option value="minus">➖ خصم من المديونية (لك)</option></select></div>
+                <div class="form-group"><label>المبلغ</label><input id="adjAmount" type="number" placeholder="0"></div>
+                <div class="form-group"><button onclick="addAdjustment()" style="background:var(--adj); width:100%; justify-content:center"><i class="fas fa-plus"></i> حفظ</button></div>
+            </div>
+            <table style="width:100%"><thead id="adjHead"><tr><th>الوصف</th><th>المندوب</th><th>التاريخ</th><th>النوع</th><th>المبلغ</th><th>حذف</th></tr></thead><tbody id="adjRows"></tbody></table>
+        </div>
+
+        <div id="nicksDiv" style="display:none; padding:20px;"><h3>تخصيص أسماء المناديب</h3><div id="nickRows"></div></div>
+        
+        <div id="historyDiv" style="display:none; padding:20px;"><h3 style="color:var(--p)">سجل المديونيات المحفوظة</h3><div id="historyList"></div></div>
+    </div>
+</div>
+
+<div class="floating-bar" id="floatBar"><div>تم تحديد: <span id="selCount">0</span></div><div id="actionButtons" style="margin-right:20px"></div></div>
+
+<!-- صفحة المعالجة -->
+<div id="processingPage">
+<div class="proc-box">
+    <div class="proc-header">
+        <h2><i class="fas fa-table" style="color:#16a085"></i> صفحة المعالجة والتصدير</h2>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <span id="procCreatorLabel" style="font-weight:bold; color:var(--p); font-size:1.1em"></span>
+            <span id="procDateLabel" style="color:#7f8c8d; font-size:0.9em"></span>
+        </div>
+    </div>
+
+    <div style="background:#fff3cd; border-radius:8px; padding:12px 18px; margin-bottom:18px; color:#856404; font-size:0.92em; display:flex; align-items:center; gap:10px;">
+        <i class="fas fa-info-circle" style="font-size:1.2em"></i>
+        <span>يمكنك تعديل <strong>المبلغ للتصدير</strong> لكل فاتورة — الفرق سينتقل تلقائياً لقسم <strong>بانتظار التحويل</strong> في الإكسل. التعديلات مؤقتة وتُمسح عند تحديث البيانات.</span>
+    </div>
+
+    <div class="proc-table-wrap">
+        <table class="proc-table" id="procTable">
+            <thead>
+                <tr>
+                    <th style="width:40px; text-align:center">#</th>
+                    <th>المرجع</th>
+                    <th>العميل</th>
+                    <th>تاريخ الفاتورة</th>
+                    <th>ت. الاستحقاق</th>
+                    <th style="color:#c0392b">المبلغ الأصلي</th>
+                    <th style="color:#16a085">المبلغ للتصدير</th>
+                    <th style="color:#8e44ad">الفرق ← انتظار</th>
+                    <th style="width:60px; text-align:center">إعادة</th>
+                </tr>
+            </thead>
+            <tbody id="procRows"></tbody>
+        </table>
+    </div>
+
+    <div class="proc-summary" id="procSummary">
+        <div class="proc-sum-card">
+            <div class="label"><i class="fas fa-file-invoice-dollar"></i> إجمالي المديونية للتصدير</div>
+            <div class="val" id="procSumDebt" style="color:#c0392b">0</div>
+        </div>
+        <div class="proc-sum-card">
+            <div class="label"><i class="fas fa-exchange-alt"></i> بانتظار التحويل (الفروق)</div>
+            <div class="val" id="procSumPendingDiff" style="color:#8e44ad">0</div>
+        </div>
+        <div class="proc-sum-card">
+            <div class="label"><i class="fas fa-exchange-alt"></i> بانتظار التحويل (أصلي)</div>
+            <div class="val" id="procSumPendingOrig" style="color:#8e44ad">0</div>
+        </div>
+        <div class="proc-sum-card">
+            <div class="label"><i class="fas fa-sliders-h"></i> صافي التسويات</div>
+            <div class="val" id="procSumAdj" style="color:#16a085">0</div>
+        </div>
+        <div class="proc-sum-card">
+            <div class="label"><i class="fas fa-gas-pump"></i> المصروفات</div>
+            <div class="val" id="procSumExp" style="color:#e74c3c">0</div>
+        </div>
+        <div class="proc-sum-card" style="border:2px solid var(--d)">
+            <div class="label"><i class="fas fa-calculator"></i> الصافي النهائي</div>
+            <div class="val" id="procSumNet" style="color:var(--d)">0</div>
+        </div>
+    </div>
+
+    <div class="proc-actions">
+        <button onclick="closeProcessingPage()" class="proc-back"><i class="fas fa-arrow-right"></i> رجوع</button>
+        <button onclick="resetProcOverrides()" class="proc-reset"><i class="fas fa-undo"></i> مسح التعديلات</button>
+        <button onclick="exportFromProcessing()" class="proc-export"><i class="fas fa-file-excel"></i> تصدير Excel المعالج</button>
+    </div>
+</div>
+</div>
+
+<!-- مودال الفلترة -->
+<div id="filterModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-filter"></i> فلترة متقدمة للفواتير</h3>
+            <button class="modal-close" onclick="closeInvoiceFilter()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="color:#555; margin-bottom:15px">الصق أرقام الفواتير التي تريد فلترتها (كل رقم في سطر):</p>
+            <textarea id="filterInvoiceNumbers" style="width:100%; height:250px; padding:15px; border:2px solid #ddd; border-radius:8px; font-family:'Cairo'; font-size:1em; resize:vertical" placeholder="مثال:
+INV4609
+INV4610
+INV4647
+INV4714
+INV4721
+
+أو فقط الأرقام:
+4609
+4610
+4647"></textarea>
+            <div style="margin-top:15px; padding:10px; background:#fff3cd; border-radius:8px; color:#856404; font-size:0.9em">
+                <i class="fas fa-info-circle"></i> <strong>ملاحظة:</strong> سيتم فلترة الفواتير في التبويب الحالي فقط. لإلغاء الفلترة، امسح الأرقام واضغط "تطبيق".
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="closeInvoiceFilter()" style="background:#95a5a6"><i class="fas fa-times"></i> إلغاء</button>
+            <button onclick="applyInvoiceFilter()" style="background:var(--g)"><i class="fas fa-check"></i> تطبيق الفلترة</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- إعدادات النظام ---
+const API_URL = "/api/get-data"; 
+const TARGET_SKU_FALLBACK = "754500950512";
+const STORAGE = { 
+    INVOICES:"sys_inv_v8", 
+    DEBT_IDS:"sys_debt_v8", 
+    PENDING_IDS:"sys_pending_v8", 
+    EXPENSES:"sys_exp_v8", 
+    ADJUSTMENTS:"sys_adj_v8", 
+    NICKS:"sys_nicks_v8", 
+    HISTORY:"sys_hist_v3",
+    CUSTOMERS: "sys_cust_v1" 
+};
+
+// --- المتغيرات العامة ---
+let invoices=[], debtIds=[], pendingIds=[], expenses=[], adjustments=[], nicknames={}, historyLog=[], customers={}, selectedIds=new Set(), currentTab='delayed';
+let currentStats = { debt: 0, expenses: 0, net: 0, delayed: 0, pending: 0, adjNet: 0 };
+let invoiceNumberFilter = []; // فلتر أرقام الفواتير
+let priceOverrides = {}; // تعديلات الأسعار في صفحة المعالجة (مؤقتة)
+
+// --- التشغيل الأولي ---
+function init(){
+    try {
+        invoices=JSON.parse(localStorage.getItem(STORAGE.INVOICES)||"[]");
+        debtIds=JSON.parse(localStorage.getItem(STORAGE.DEBT_IDS)||"[]");
+        pendingIds=JSON.parse(localStorage.getItem(STORAGE.PENDING_IDS)||"[]");
+        expenses=JSON.parse(localStorage.getItem(STORAGE.EXPENSES)||"[]");
+        adjustments=JSON.parse(localStorage.getItem(STORAGE.ADJUSTMENTS)||"[]");
+        nicknames=JSON.parse(localStorage.getItem(STORAGE.NICKS)||"{}");
+        historyLog=JSON.parse(localStorage.getItem(STORAGE.HISTORY)||"[]");
+        customers=JSON.parse(localStorage.getItem(STORAGE.CUSTOMERS)||"{}");
+    } catch(e) { console.error("Storage load error", e); }
+    updateCreatorsList(); calculateStats(); renderCurrentTab();
+}
+
+async function fetchData(){
+    const btn=document.getElementById("upBtn"),st=document.getElementById("status");
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> جاري الجلب...';
+    try{
+        const r=await fetch(API_URL);
+        const d=await r.json();
+        if(!r.ok) throw new Error(d.error || "Server Error");
+        
+        const targetId=d.target_product?.id;
+        
+        // تحديث مخزن العملاء محلياً
+        if(d.customers?.customers) {
+            d.customers.customers.forEach(c => { customers[c.id] = c.name; });
+            localStorage.setItem(STORAGE.CUSTOMERS, JSON.stringify(customers));
+        }
+        
+        invoices=(d.invoices?.invoices||[]).map(inv=>{
+            let isDelayed=false;
+            if(targetId&&inv.line_items) isDelayed=inv.line_items.some(i=>i.product_id===targetId);
+            else if(inv.line_items) isDelayed=inv.line_items.some(i=>i.sku===TARGET_SKU_FALLBACK||i.product_name?.includes("آجلة"));
+            let dueAmount=parseFloat(inv.due_amount); if(isNaN(dueAmount)) dueAmount=parseFloat(inv.total);
+            return {
+                id:inv.id, ref:inv.reference, customer:customers[inv.contact_id]||inv.contact_name||"عميل عام",
+                creator:inv.created_by, date:inv.issue_date, dueDate: inv.due_date || inv.issue_date,
+                total:parseFloat(inv.total), due:dueAmount, status:inv.status, is_delayed:isDelayed
+            };
+        });
+        localStorage.setItem(STORAGE.INVOICES,JSON.stringify(invoices));
+        priceOverrides = {}; // مسح التعديلات المؤقتة عند تحديث البيانات
+        updateCreatorsList(); calculateStats(); renderCurrentTab();
+        btn.innerHTML='<i class="fas fa-sync-alt"></i> تحديث'; st.innerText="✅ تم"; setTimeout(()=>st.innerText="",2000);
+    }catch(e){
+        console.error(e); btn.innerHTML='<i class="fas fa-sync-alt"></i> تحديث'; st.innerText="❌ خطأ"; alert("فشل جلب البيانات: " + e.message);
+    }finally{ btn.disabled=false; }
+}
+
+function handleFilterChange() { calculateStats(); renderCurrentTab(); }
+
+function getFilteredInvoices(){
+    const creator=document.getElementById("creatorFilter").value;
+    const search=document.getElementById("searchInput").value.toLowerCase();
+    return invoices.filter(inv=>{
+        if(inv.status==="Draft"||inv.status==="Voided"||inv.status==="Paid"||inv.due<=0) return false;
+        const creatorMatch=(creator==='all'||inv.creator===creator);
+        if(!creatorMatch) return false;
+        const isPending = pendingIds.includes(inv.id);
+        const isDebt = debtIds.includes(inv.id);
+        let tabMatch=false;
+        if(currentTab==='pending') tabMatch = isPending; 
+        else if(currentTab==='debt') tabMatch = isDebt && !isPending; 
+        else if(currentTab==='delayed') tabMatch = inv.is_delayed && !isDebt && !isPending; 
+        else if(currentTab==='cash') tabMatch = !inv.is_delayed && !isDebt && !isPending; 
+        const searchMatch=inv.ref.toLowerCase().includes(search)||inv.customer.toLowerCase().includes(search);
+        // فلتر الأرقام المتقدم
+        const numberMatch = invoiceNumberFilter.length === 0 || invoiceNumberFilter.includes(inv.ref.toUpperCase());
+        return tabMatch&&searchMatch&&numberMatch;
+    });
+}
+
+function calculateStats(){
+    const creator = document.getElementById("creatorFilter").value;
+    const isCreator = (c) => (creator === 'all' || c === creator);
+    const filteredExpenses = expenses.filter(e => isCreator(e.creator));
+    const totalExp = filteredExpenses.reduce((a, b) => a + b.amount, 0);
+    const filteredAdj = adjustments.filter(a => isCreator(a.creator));
+    let adjPlus = 0, adjMinus = 0;
+    filteredAdj.forEach(a => { if(a.type === 'plus') adjPlus += a.amount; else adjMinus += a.amount; });
+    const adjNet = adjPlus - adjMinus; 
+    const isActive = (inv) => (inv.status !== 'Paid' && inv.status !== 'Voided' && inv.status !== 'Draft' && inv.due > 0);
+    const isInvCreator = (inv) => isCreator(inv.creator);
+    const pendingInvoices = invoices.filter(inv => pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+    const totalPending = pendingInvoices.reduce((a,b) => a + b.due, 0);
+    const debtInvoices = invoices.filter(inv => debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+    const totalDebt = debtInvoices.reduce((a, b) => a + b.due, 0);
+    const delayedInvoices = invoices.filter(inv => inv.is_delayed && !debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+    const totalDelayed = delayedInvoices.reduce((a, b) => a + b.due, 0);
+    const cashInvoices = invoices.filter(inv => !inv.is_delayed && !debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+    const net = totalDebt + adjNet - totalExp;
+
+    document.getElementById("stat-delayed").innerText = totalDelayed.toLocaleString();
+    document.getElementById("stat-debt").innerText = totalDebt.toLocaleString();
+    document.getElementById("stat-expense").innerText = totalExp.toLocaleString();
+    document.getElementById("stat-net").innerText = net.toLocaleString();
+    document.getElementById("stat-pending").innerText = totalPending.toLocaleString();
+    document.getElementById("stat-adj").innerText = (adjNet > 0 ? "+" : "") + adjNet.toLocaleString();
+
+    document.getElementById("badge-delayed").innerText = delayedInvoices.length;
+    document.getElementById("badge-debt").innerText = debtInvoices.length;
+    document.getElementById("badge-expenses").innerText = filteredExpenses.length;
+    document.getElementById("badge-cash").innerText = cashInvoices.length;
+    document.getElementById("badge-pending").innerText = pendingInvoices.length;
+    document.getElementById("badge-adjustments").innerText = filteredAdj.length;
+
+    currentStats = { debt: totalDebt, expenses: totalExp, net: net, delayed: totalDelayed, pending: totalPending, adjPlus, adjMinus, adjNet };
+}
+
+function renderCurrentTab(){
+    const mainTable=document.getElementById("tbl"), expDiv=document.getElementById("expensesDiv"), adjDiv=document.getElementById("adjustmentsDiv"), nickDiv=document.getElementById("nicksDiv"), histDiv=document.getElementById("historyDiv");
+    mainTable.style.display='none'; expDiv.style.display='none'; adjDiv.style.display='none'; nickDiv.style.display='none'; histDiv.style.display='none';
+    if(currentTab==='expenses'){ expDiv.style.display='block'; renderExpenses(); return; }
+    if(currentTab==='adjustments'){ adjDiv.style.display='block'; renderAdjustments(); return; }
+    if(currentTab==='nicks'){ nickDiv.style.display='block'; renderNicks(); return; }
+    if(currentTab==='history'){ histDiv.style.display='block'; renderHistory(); return; }
+    mainTable.style.display='table'; selectedIds.clear(); updateFloatingBar(); 
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    document.getElementById("tab-"+currentTab)?.classList.add("active");
+    const data=getFilteredInvoices(); const tbody=document.getElementById("rows"); tbody.innerHTML="";
+    if(data.length===0){ tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:30px;color:#999">لا توجد بيانات للعرض</td></tr>`; return; }
+    data.forEach(inv=>{
+        const nick=nicknames[inv.creator]||inv.creator;
+        let tag=inv.is_delayed?'<span class="tag tag-delayed">آجلة</span>':'<span class="tag tag-cash">كاش</span>';
+        if(pendingIds.includes(inv.id)) tag='<span class="tag tag-pending">في الانتظار</span>';
+        else if(debtIds.includes(inv.id)) tag='<span class="tag tag-debt">في المديونية</span>';
+        let statusHtml='<span style="color:#f39c12">معلقة</span>';
+        if(inv.status==='Partially Paid'||inv.due<inv.total) statusHtml='<span class="tag tag-part">مدفوعة جزئياً</span>';
+        let amountDisplay=`<span style="font-weight:bold; font-size:1.1em">${inv.due.toLocaleString()}</span>`;
+        if(inv.due<inv.total){ amountDisplay=`<div style="color:#c0392b; font-weight:bold; font-size:1.1em">${inv.due.toLocaleString()}</div><div style="color:#aaa; text-decoration:line-through; font-size:0.85em">${inv.total.toLocaleString()}</div>`; }
+        tbody.innerHTML+=`<tr onclick="rowClick(event, ${inv.id})"><td><input type="checkbox" class="row-chk" value="${inv.id}" onchange="toggleSelect(${inv.id})"></td><td style="color:var(--p);font-weight:bold">${inv.ref}</td><td>${inv.customer}</td><td>${nick}</td><td>${inv.date}</td><td style="color:#c0392b">${inv.dueDate || '-'}</td><td>${tag}</td><td>${amountDisplay}</td><td>${statusHtml}</td></tr>`;
+    });
+}
+
+function renderExpenses(){
+    const creator=document.getElementById("creatorFilter").value;
+    const tbody=document.getElementById("expenseRows"); tbody.innerHTML="";
+    const filtered = expenses.filter(e=>creator==='all'||e.creator===creator);
+    if(filtered.length === 0) { tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:#999">لا توجد مصروفات</td></tr>`; return; }
+    filtered.forEach(exp=>{ const nick=nicknames[exp.creator]||exp.creator; tbody.innerHTML+=`<tr><td>${exp.desc}</td><td>${nick}</td><td>${exp.date}</td><td style="font-weight:bold; color:#c0392b">${exp.amount.toLocaleString()}</td><td><button onclick="delExpense(${exp.id})" style="background:#fff;color:red;padding:0"><i class="fas fa-trash"></i></button></td></tr>`; });
+}
+
+function renderAdjustments(){
+    const creator=document.getElementById("creatorFilter").value;
+    const tbody=document.getElementById("adjRows"); tbody.innerHTML="";
+    const filtered = adjustments.filter(a=>creator==='all'||a.creator===creator);
+    if(filtered.length === 0) { tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:#999">لا توجد مبالغ مخصصة</td></tr>`; return; }
+    filtered.forEach(adj=>{
+        const nick=nicknames[adj.creator]||adj.creator;
+        const typeHtml = adj.type === 'plus' ? '<span class="tag tag-debt">➕ إضافة على الدين</span>' : '<span class="tag tag-cash">➖ خصم من الدين</span>';
+        const color = adj.type === 'plus' ? '#c0392b' : '#27ae60';
+        tbody.innerHTML+=`<tr><td>${adj.desc}</td><td>${nick}</td><td>${adj.date}</td><td>${typeHtml}</td><td style="font-weight:bold; color:${color}">${adj.amount.toLocaleString()}</td><td><button onclick="delAdjustment(${adj.id})" style="background:#fff;color:red;padding:0"><i class="fas fa-trash"></i></button></td></tr>`;
+    });
+}
+
+function addExpense(){
+    const creator=document.getElementById("creatorFilter").value; if(creator==='all'){alert("يجب اختيار المندوب أولاً!");return;}
+    const desc=document.getElementById("expDesc").value, amount=parseFloat(document.getElementById("expAmount").value);
+    if(!desc||!amount) return;
+    expenses.push({ id:Date.now(), desc, amount, date: new Date().toISOString().split('T')[0], creator });
+    localStorage.setItem(STORAGE.EXPENSES,JSON.stringify(expenses));
+    document.getElementById("expDesc").value=""; document.getElementById("expAmount").value=""; calculateStats(); renderExpenses();
+}
+
+function addAdjustment(){
+    const creator=document.getElementById("creatorFilter").value; if(creator==='all'){alert("يجب اختيار المندوب أولاً!");return;}
+    const desc=document.getElementById("adjDesc").value, type=document.getElementById("adjType").value, amount=parseFloat(document.getElementById("adjAmount").value);
+    if(!desc||!amount) return;
+    adjustments.push({ id:Date.now(), desc, type, amount, date: new Date().toISOString().split('T')[0], creator });
+    localStorage.setItem(STORAGE.ADJUSTMENTS,JSON.stringify(adjustments));
+    document.getElementById("adjDesc").value=""; document.getElementById("adjAmount").value=""; calculateStats(); renderAdjustments();
+}
+
+function delExpense(id){ if(!confirm("حذف المصروف؟"))return; expenses=expenses.filter(e=>e.id!==id); localStorage.setItem(STORAGE.EXPENSES,JSON.stringify(expenses)); calculateStats(); renderExpenses(); }
+function delAdjustment(id){ if(!confirm("حذف التسوية؟"))return; adjustments=adjustments.filter(a=>a.id!==id); localStorage.setItem(STORAGE.ADJUSTMENTS,JSON.stringify(adjustments)); calculateStats(); renderAdjustments(); }
+
+function switchTab(tab){ currentTab=tab; renderCurrentTab(); }
+
+function toggleSelect(id){ if(selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id); updateFloatingBar(); }
+function toggleAll(source){ const checkboxes=document.querySelectorAll('.row-chk'); checkboxes.forEach(c=>{ c.checked=source.checked; const id=parseInt(c.value); if(source.checked) selectedIds.add(id); else selectedIds.delete(id); }); updateFloatingBar(); }
+function rowClick(e, id){ if(e.target.tagName==='INPUT' || e.target.tagName==='BUTTON') return; const chk=document.querySelector(`input[value="${id}"]`); if(chk) { chk.checked=!chk.checked; toggleSelect(id); } }
+
+function updateFloatingBar(){
+    const bar=document.getElementById("floatBar"); document.getElementById("selCount").innerText=selectedIds.size;
+    if(selectedIds.size>0){
+        bar.classList.add("show"); const actionsDiv=document.getElementById("actionButtons"); let buttonsHTML = "";
+        if(currentTab === 'pending') buttonsHTML+=`<button onclick="removeFromPending()" style="background:#f39c12">إعادة للفواتير الأصلية</button>`;
+        else {
+             if(currentTab==='delayed') buttonsHTML+=`<button onclick="moveToDebt()" style="background:#e74c3c">نقل للمديونية</button>`;
+             else if(currentTab==='debt') buttonsHTML+=`<button onclick="removeFromDebt()" style="background:#f39c12">إزالة من المديونية</button>`;
+             else if(currentTab==='cash') { buttonsHTML+=`<button onclick="markAsDelayed()" style="background:var(--p)">تحويل آجل</button>`; buttonsHTML+=`<button onclick="moveToDebt()" style="background:#e74c3c">نقل للمديونية</button>`; }
+             buttonsHTML+=`<button onclick="moveToPending()" style="background:var(--pending); margin-right:10px;">نقل للانتظار</button>`;
+             buttonsHTML+=`<button onclick="transferToAnotherCreator()" style="background:#34495e; margin-right:10px;"><i class="fas fa-exchange-alt"></i> نقل لمندوب آخر</button>`;
+        }
+        actionsDiv.innerHTML = buttonsHTML;
+    } else bar.classList.remove("show");
+}
+
+function moveToPending(){ selectedIds.forEach(id=>{ if(!pendingIds.includes(id)) pendingIds.push(id); }); localStorage.setItem(STORAGE.PENDING_IDS, JSON.stringify(pendingIds)); calculateStats(); renderCurrentTab(); }
+function removeFromPending(){ pendingIds = pendingIds.filter(id => !selectedIds.has(id)); localStorage.setItem(STORAGE.PENDING_IDS, JSON.stringify(pendingIds)); calculateStats(); renderCurrentTab(); }
+function moveToDebt(){ selectedIds.forEach(id=>{ if(!debtIds.includes(id)) debtIds.push(id); }); localStorage.setItem(STORAGE.DEBT_IDS,JSON.stringify(debtIds)); calculateStats(); renderCurrentTab(); }
+function removeFromDebt(){ debtIds=debtIds.filter(id=>!selectedIds.has(id)); localStorage.setItem(STORAGE.DEBT_IDS,JSON.stringify(debtIds)); calculateStats(); renderCurrentTab(); }
+function markAsDelayed(){ invoices.forEach(inv=>{ if(selectedIds.has(inv.id)) inv.is_delayed=true; }); localStorage.setItem(STORAGE.INVOICES,JSON.stringify(invoices)); renderCurrentTab(); }
+
+function transferToAnotherCreator() {
+    const password = prompt("الرجاء إدخال كلمة المرور للنقل:");
+    if (password !== "4243") {
+        alert("كلمة المرور غير صحيحة!");
+        return;
+    }
+
+    const allCreators = new Set();
+    invoices.forEach(i => allCreators.add(i.creator));
+    const creators = [...allCreators].filter(Boolean);
+    
+    if (creators.length === 0) {
+        alert("لا يوجد مناديب متاحين للنقل إليهم.");
+        return;
+    }
+
+    let message = "اختر المندوب الجديد:\n";
+    creators.forEach((c, index) => {
+        const n = nicknames[c] || c;
+        message += `${index + 1} - ${n}\n`;
+    });
+
+    const choice = prompt(message);
+    const selectedIndex = parseInt(choice) - 1;
+
+    if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= creators.length) {
+        alert("اختيار غير صحيح.");
+        return;
+    }
+
+    const newCreator = creators[selectedIndex];
+    const newCreatorName = nicknames[newCreator] || newCreator;
+
+    if (confirm(`هل أنت متأكد من نقل ${selectedIds.size} فاتورة إلى المندوب: ${newCreatorName}؟`)) {
+        invoices.forEach(inv => {
+            if (selectedIds.has(inv.id)) {
+                inv.creator = newCreator;
+            }
+        });
+        localStorage.setItem(STORAGE.INVOICES, JSON.stringify(invoices));
+        
+        // تحديث المصروفات والتسويات المرتبطة إذا لزم الأمر (اختياري حسب رغبة المستخدم، لكن الطلب ركز على الفاتورة)
+        
+        selectedIds.clear();
+        calculateStats();
+        renderCurrentTab();
+        alert("تم نقل الفواتير بنجاح.");
+    }
+}
+
+function renderNicks(){ updateCreatorsList(); }
+function updateCreatorsList(){
+    const s=document.getElementById("creatorFilter"), current=s.value;
+    const allCreators = new Set(); invoices.forEach(i => allCreators.add(i.creator)); expenses.forEach(e => allCreators.add(e.creator)); adjustments.forEach(a => allCreators.add(a.creator));
+    const creators=[...allCreators].filter(Boolean); s.innerHTML='<option value="all">كل المناديب</option>';
+    creators.forEach(c=>{ const n=nicknames[c]||c; s.innerHTML+=`<option value="${c}">${n}</option>`; });
+    s.value=current;
+    const nickRows=document.getElementById("nickRows");
+    if(nickRows && currentTab === 'nicks'){ nickRows.innerHTML=""; creators.forEach(c=>{ const val=nicknames[c]||""; nickRows.innerHTML+=`<div style="margin-bottom:10px; display:flex; align-items:center; gap:10px; background:#f9f9f9; padding:10px; border-radius:5px;"><span style="width:200px; font-weight:bold;">${c}</span><input type="text" placeholder="الاسم المختصر" value="${val}" onchange="saveNick('${c}', this.value)" style="flex:1"></div>`; }); }
+}
+function saveNick(creator, val){ if(val) nicknames[creator]=val; else delete nicknames[creator]; localStorage.setItem(STORAGE.NICKS,JSON.stringify(nicknames)); updateCreatorsList(); }
+
+function saveToHistory(){
+    const creator = document.getElementById("creatorFilter").value; if(creator === 'all' && !confirm("تنبيه: أنت تحفظ تقرير لكل المناديب!")) return;
+    const creatorName = creator === 'all' ? 'الكل' : (nicknames[creator] || creator); const dateStr = new Date().toLocaleString('ar-EG');
+    const activeDebtInvoices = invoices.filter(inv => debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && (creator === 'all' || inv.creator === creator) && inv.due > 0);
+    const activeExpenses = expenses.filter(e => creator === 'all' || e.creator === creator);
+    const activeAdjustments = adjustments.filter(a => creator === 'all' || a.creator === creator);
+    const activeDelayed = invoices.filter(inv => inv.is_delayed && !debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && (creator === 'all' || inv.creator === creator) && inv.due > 0);
+    const activePending = invoices.filter(inv => pendingIds.includes(inv.id) && (creator === 'all' || inv.creator === creator) && inv.due > 0);
+    if(activeDebtInvoices.length === 0 && activeExpenses.length === 0 && activeAdjustments.length === 0 && activePending.length === 0){ alert("لا توجد بيانات لحفظها!"); return; }
+    const reportSnapshot = { id: Date.now(), saveDate: dateStr, creatorRaw: creator, creatorName: creatorName, totalDebt: currentStats.debt, totalExp: currentStats.expenses, net: currentStats.net, totalPending: currentStats.pending, adjNet: currentStats.adjNet, invoices: activeDebtInvoices, expenses: activeExpenses, adjustments: activeAdjustments, delayedInvoices: activeDelayed, pendingInvoices: activePending };
+    historyLog.push(reportSnapshot); localStorage.setItem(STORAGE.HISTORY, JSON.stringify(historyLog)); alert("تم الأرشفة بنجاح");
+}
+
+function renderHistory(){
+    const list = document.getElementById("historyList"); list.innerHTML = ""; const creator = document.getElementById("creatorFilter").value;
+    const filteredHistory = historyLog.filter(h => creator === 'all' || h.creatorRaw === creator).reverse();
+    if(filteredHistory.length === 0){ list.innerHTML = "<p>لا يوجد أرشيف محفوظ لهذا الاختيار.</p>"; return; }
+    filteredHistory.forEach(item => { list.innerHTML += `<div class="history-item"><div class="history-info"><strong><i class="fas fa-file-invoice"></i> تقرير: ${item.creatorName}</strong><span><i class="far fa-clock"></i> ${item.saveDate}</span> | <span style="color:var(--d); font-weight:bold">الصافي: ${item.net.toLocaleString()}</span>${item.adjNet !== 0 ? `| <span style="color:#16a085">تسويات: ${item.adjNet.toLocaleString()}</span>` : ''}</div><div style="display:flex; gap:5px;"><button onclick='exportHistoryItem(${JSON.stringify(item)})' style="background:#27ae60; font-size:0.8em"><i class="fas fa-download"></i> اكسل</button><button onclick="deleteHistoryItem(${item.id})" style="background:#c0392b; font-size:0.8em"><i class="fas fa-trash"></i></button></div></div>`; });
+}
+function deleteHistoryItem(id){ if(!confirm("حذف هذا السجل؟")) return; historyLog = historyLog.filter(h => h.id !== id); localStorage.setItem(STORAGE.HISTORY, JSON.stringify(historyLog)); renderHistory(); }
+function exportHistoryItem(item){ generateColoredExcel(item.creatorName, item.invoices, item.expenses, item.adjustments || [], item.delayedInvoices, item.pendingInvoices || [], {debt: item.totalDebt, expenses: item.totalExp, net: item.net, pending: item.totalPending || 0, adjNet: item.adjNet || 0}, item.saveDate); }
+
+function exportToExcel(isHistory = false) {
+    if(isHistory) return; const creator = document.getElementById("creatorFilter").value; const creatorName = creator === 'all' ? 'الكل' : (nicknames[creator] || creator); const dateStr = new Date().toISOString().split('T')[0];
+    const debtInvoices = invoices.filter(inv => debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && (creator === 'all' || inv.creator === creator) && inv.due > 0 && inv.status !== 'Paid');
+    const filteredExpenses = expenses.filter(e => creator === 'all' || e.creator === creator);
+    const filteredAdjustments = adjustments.filter(a => creator === 'all' || a.creator === creator);
+    const delayedInvoices = invoices.filter(inv => inv.is_delayed && !debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && (creator === 'all' || inv.creator === creator) && inv.due > 0 && inv.status !== 'Paid');
+    const pendingInvoicesExport = invoices.filter(inv => pendingIds.includes(inv.id) && (creator === 'all' || inv.creator === creator) && inv.due > 0);
+    generateColoredExcel(creatorName, debtInvoices, filteredExpenses, filteredAdjustments, delayedInvoices, pendingInvoicesExport, currentStats, dateStr);
+}
+
+// --- Excel Generator Pro (Dynamic Formulas) ---
+async function generateColoredExcel(name, debtInvs, exps, adjs, delayedInvs, pendingInvs, stats, dateVal){
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('التقرير المالي', {views: [{rightToLeft: true}]});
+    
+    sheet.columns = [
+        { header: 'البيان', key: 'col1', width: 30 }, { header: 'التفاصيل', key: 'col2', width: 25 }, { header: 'تاريخ الفاتورة', key: 'col3', width: 15 }, { header: 'ت. الاستحقاق', key: 'col4', width: 15 }, { header: 'المبلغ', key: 'col5', width: 15 } 
+    ];
+
+    const applyHeaderStyle = (row, colorHex) => {
+        row.eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern:'solid', fgColor:{argb: colorHex} };
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+    };
+    const applyDataRowStyle = (row, tintColor) => {
+        row.eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern:'solid', fgColor:{argb: tintColor} };
+            cell.border = { top: {style:'thin', color: {argb:'FFE0E0E0'}}, bottom: {style:'thin', color: {argb:'FFE0E0E0'}} };
+        });
+    };
+    const applyTotalRowStyle = (row) => {
+        row.font = { bold: true };
+        row.eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern:'solid', fgColor:{argb: 'FFE0E0E0'} };
+            cell.border = { top: {style:'double'} };
+        });
+    };
+
+    sheet.addRow(['تقرير مديونية المندوب']); sheet.mergeCells('A1:E1');
+    const titleRow = sheet.getRow(1); applyHeaderStyle(titleRow, 'FF2C3E50'); titleRow.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    sheet.addRow(['المندوب:', name]);
+    sheet.addRow(['التاريخ:', dateVal]);
+    sheet.addRow(['الوقت:', timeStr]);
+    sheet.getRow(2).font = { bold: true };
+    sheet.addRow([]);
+
+    const summaryHeader = sheet.addRow(['ملخص الحسابات']); sheet.mergeCells(`A${summaryHeader.number}:E${summaryHeader.number}`); applyHeaderStyle(summaryHeader, 'FF2980B9');
+    const debtSummaryRow = sheet.addRow(['إجمالي فواتير المديونية', '', '', '', 0]);
+    const adjSummaryRow = sheet.addRow(['صافي التسويات (زيادة/نقص)', '', '', '', 0]);
+    const expSummaryRow = sheet.addRow(['إجمالي المصروفات', '', '', '', 0]);
+    const netSummaryRow = sheet.addRow(['الصافي المستحق النهائي', '', '', '', 0]);
+    applyTotalRowStyle(netSummaryRow); netSummaryRow.getCell(5).font = { bold: true, color: { argb: 'FF0000FF' }, size: 14 };
+    sheet.addRow([]);
+
+    let debtTotalCellRef = null;
+    let adjTotalCellRef = null;
+    let expTotalCellRef = null;
+
+    // Debt Section
+    const debtHeader = sheet.addRow(['تفاصيل فواتير المديونية']); sheet.mergeCells(`A${debtHeader.number}:E${debtHeader.number}`); applyHeaderStyle(debtHeader, 'FFE74C3C');
+    const debtCols = sheet.addRow(['المرجع', 'العميل', 'تاريخ الفاتورة', 'تاريخ الاستحقاق', 'المبلغ']);
+    debtCols.font = { bold: true }; debtCols.eachCell(c => c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'}});
+    const debtStartRow = sheet.lastRow.number + 1;
+    if(debtInvs.length > 0){
+        debtInvs.forEach(inv => { const r = sheet.addRow([inv.ref, inv.customer, inv.date, inv.dueDate, inv.due]); applyDataRowStyle(r, 'FFFDF2F2'); });
+        const debtEndRow = sheet.lastRow.number;
+        const debtTotalRow = sheet.addRow(['المجموع', '', '', '', { formula: `SUM(E${debtStartRow}:E${debtEndRow})`, result: stats.debt }]); 
+        applyTotalRowStyle(debtTotalRow);
+        debtTotalCellRef = `E${debtTotalRow.number}`;
+    } else {
+        sheet.addRow(['لا يوجد فواتير مديونية', '', '', '', 0]);
+        debtTotalCellRef = 0;
+    }
+    sheet.addRow([]);
+
+    // Adjustments Section
+    if(adjs && adjs.length > 0){
+        const adjHeader = sheet.addRow(['المبالغ المخصصة (التسويات)']); sheet.mergeCells(`A${adjHeader.number}:E${adjHeader.number}`); applyHeaderStyle(adjHeader, 'FF16A085');
+        const adjCols = sheet.addRow(['الوصف', 'النوع', 'التاريخ', '', 'المبلغ']);
+        adjCols.font = { bold: true }; adjCols.eachCell(c => c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'}});
+        const adjStartRow = sheet.lastRow.number + 1;
+        adjs.forEach(a => {
+            const realAmount = a.type === 'plus' ? a.amount : -a.amount;
+            const r = sheet.addRow([a.desc, a.type === 'plus' ? 'إضافة (+)' : 'خصم (-)', a.date, '', realAmount]);
+            r.getCell(5).numFmt = '#,##0.00;[Green]-#,##0.00'; 
+            r.getCell(5).font = { bold: true, color: { argb: a.type === 'plus' ? 'FFC0392B' : 'FF27AE60' } };
+            applyDataRowStyle(r, 'FFEFFBF9');
+        });
+        const adjEndRow = sheet.lastRow.number;
+        const adjTotalRow = sheet.addRow(['صافي التسويات', '', '', '', { formula: `SUM(E${adjStartRow}:E${adjEndRow})`, result: stats.adjNet }]); 
+        applyTotalRowStyle(adjTotalRow);
+        adjTotalRow.getCell(5).numFmt = '#,##0.00;[Green]-#,##0.00';
+        adjTotalCellRef = `E${adjTotalRow.number}`;
+        sheet.addRow([]);
+    }
+
+    // Expenses Section
+    const expHeader = sheet.addRow(['تفاصيل المصروفات']); sheet.mergeCells(`A${expHeader.number}:E${expHeader.number}`); applyHeaderStyle(expHeader, 'FFC0392B');
+    const expCols = sheet.addRow(['الوصف', 'المندوب', 'التاريخ', '', 'المبلغ']); expCols.font = { bold: true }; expCols.eachCell(c => c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'}});
+    const expStartRow = sheet.lastRow.number + 1;
+    if(exps.length > 0){
+        exps.forEach(exp => { const r = sheet.addRow([exp.desc, name, exp.date, '', exp.amount]); applyDataRowStyle(r, 'FFFFF5F5'); });
+        const expEndRow = sheet.lastRow.number;
+        const expTotalRow = sheet.addRow(['المجموع', '', '', '', { formula: `SUM(E${expStartRow}:E${expEndRow})`, result: stats.expenses }]); 
+        applyTotalRowStyle(expTotalRow);
+        expTotalCellRef = `E${expTotalRow.number}`;
+    } else {
+        sheet.addRow(['لا يوجد مصروفات', '', '', '', 0]);
+        expTotalCellRef = 0;
+    }
+    sheet.addRow([]);
+
+    // Update Summary at Top
+    const debtSumCell = debtSummaryRow.getCell(5);
+    debtSumCell.value = debtTotalCellRef ? { formula: debtTotalCellRef, result: stats.debt } : 0;
+
+    const adjSumCell = adjSummaryRow.getCell(5);
+    if(adjTotalCellRef) {
+        adjSumCell.value = { formula: adjTotalCellRef, result: stats.adjNet };
+        adjSumCell.numFmt = '#,##0.00;[Green]-#,##0.00';
+        adjSumCell.font = { bold: true, color: { argb: stats.adjNet > 0 ? 'FFC0392B' : 'FF27AE60' } };
+    } else { adjSumCell.value = 0; }
+
+    const expSumCell = expSummaryRow.getCell(5);
+    expSumCell.value = expTotalCellRef ? { formula: expTotalCellRef, result: stats.expenses } : 0;
+
+    let netFormulaParts = [];
+    if(debtTotalCellRef) netFormulaParts.push(debtTotalCellRef);
+    if(adjTotalCellRef) netFormulaParts.push(adjTotalCellRef); 
+    if(expTotalCellRef) netFormulaParts.push(`-${expTotalCellRef}`); 
+    
+    if(netFormulaParts.length > 0) {
+        const netFormula = netFormulaParts.join('+').replace('+-', '-');
+        netSummaryRow.getCell(5).value = { formula: netFormula, result: stats.net };
+    } else { netSummaryRow.getCell(5).value = 0; }
+
+    // Optional: Pending & Delayed
+    if(pendingInvs && pendingInvs.length > 0){
+        sheet.addRow([]);
+        const pHeader = sheet.addRow(['فواتير بانتظار التحويل']); sheet.mergeCells(`A${pHeader.number}:E${pHeader.number}`); applyHeaderStyle(pHeader, 'FF8E44AD');
+        const pCols = sheet.addRow(['المرجع', 'العميل', 'تاريخ الفاتورة', 'تاريخ الاستحقاق', 'المبلغ']);
+        pCols.font = { bold: true };
+        const pStart = sheet.lastRow.number + 1;
+        pendingInvs.forEach(inv => { const r = sheet.addRow([inv.ref, inv.customer, inv.date, inv.dueDate, inv.due]); applyDataRowStyle(r, 'FFF9F2FD'); });
+        const pEnd = sheet.lastRow.number;
+        sheet.addRow(['المجموع', '', '', '', { formula: `SUM(E${pStart}:E${pEnd})` }]);
+    }
+    if(delayedInvs && delayedInvs.length > 0){
+        sheet.addRow([]);
+        const dHeader = sheet.addRow(['فواتير آجلة (للمعلومة)']); sheet.mergeCells(`A${dHeader.number}:E${dHeader.number}`); applyHeaderStyle(dHeader, 'FF2980B9');
+        const dCols = sheet.addRow(['المرجع', 'العميل', 'تاريخ الفاتورة', 'تاريخ الاستحقاق', 'المبلغ']);
+        dCols.font = { bold: true };
+        const dStart = sheet.lastRow.number + 1;
+        delayedInvs.forEach(inv => { const r = sheet.addRow([inv.ref, inv.customer, inv.date, inv.dueDate, inv.due]); applyDataRowStyle(r, 'FFF2F9FF'); });
+        const dEnd = sheet.lastRow.number;
+        sheet.addRow(['المجموع', '', '', '', { formula: `SUM(E${dStart}:E${dEnd})` }]);
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `${name} - ${dateVal}.xlsx`);
+}
+
+// --- دوال الفلترة المتقدمة ---
+function openInvoiceFilter() {
+    const modal = document.getElementById('filterModal');
+    const textarea = document.getElementById('filterInvoiceNumbers');
+    // تحميل الأرقام الحالية في الفلتر
+    textarea.value = invoiceNumberFilter.join('\n');
+    modal.style.display = 'block';
+}
+
+function closeInvoiceFilter() {
+    const modal = document.getElementById('filterModal');
+    modal.style.display = 'none';
+}
+
+function applyInvoiceFilter() {
+    const textarea = document.getElementById('filterInvoiceNumbers');
+    const text = textarea.value.trim();
+    
+    if (text === '') {
+        // إلغاء الفلترة
+        invoiceNumberFilter = [];
+    } else {
+        // فصل الأرقام بناءً على الأسطر وتنظيفها
+        invoiceNumberFilter = text.split('\n')
+            .map(line => {
+                line = line.trim();
+                // إذا كان الرقم لا يحتوي على INV في البداية، أضفها
+                if (line !== '' && !line.toUpperCase().startsWith('INV')) {
+                    return 'INV' + line;
+                }
+                return line.toUpperCase();
+            })
+            .filter(line => line !== '');
+    }
+    
+    closeInvoiceFilter();
+    renderCurrentTab();
+    
+    // إظهار/إخفاء زر مسح التصفية
+    document.getElementById('clearFilterBtn').style.display = invoiceNumberFilter.length > 0 ? 'inline-flex' : 'none';
+
+    // إظهار رسالة تأكيد
+    const status = document.getElementById('status');
+    if (invoiceNumberFilter.length > 0) {
+        status.innerText = `✅ تم فلترة ${invoiceNumberFilter.length} فاتورة`;
+        status.style.color = 'var(--g)';
+    } else {
+        status.innerText = '✅ تم إلغاء الفلترة';
+        status.style.color = 'var(--p)';
+    }
+    setTimeout(() => status.innerText = '', 3000);
+}
+
+// إغلاق المودال عند الضغط خارجه
+window.onclick = function(event) {
+    const modal = document.getElementById('filterModal');
+    if (event.target === modal) {
+        closeInvoiceFilter();
+    }
+}
+
+// --- دالة مسح التصفية ---
+function clearInvoiceFilter() {
+    invoiceNumberFilter = [];
+    document.getElementById('clearFilterBtn').style.display = 'none';
+    renderCurrentTab();
+    const status = document.getElementById('status');
+    status.innerText = '✅ تم إلغاء الفلترة';
+    status.style.color = 'var(--p)';
+    setTimeout(() => status.innerText = '', 2500);
+}
+
+// --- صفحة المعالجة ---
+function openProcessingPage() {
+    document.querySelector('.box').style.display = 'none';
+    document.getElementById('processingPage').style.display = 'block';
+    renderProcessingTable();
+}
+
+function closeProcessingPage() {
+    document.getElementById('processingPage').style.display = 'none';
+    document.querySelector('.box').style.display = 'block';
+}
+
+function resetProcOverrides() {
+    if (!confirm('مسح جميع تعديلات الأسعار؟')) return;
+    priceOverrides = {};
+    renderProcessingTable();
+}
+
+function renderProcessingTable() {
+    const creator = document.getElementById('creatorFilter').value;
+    const creatorName = creator === 'all' ? 'كل المناديب' : (nicknames[creator] || creator);
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    document.getElementById('procCreatorLabel').innerText = '👤 ' + creatorName;
+    document.getElementById('procDateLabel').innerText = '📅 ' + dateStr;
+
+    const isActive = (inv) => (inv.status !== 'Paid' && inv.status !== 'Voided' && inv.status !== 'Draft' && inv.due > 0);
+    const isInvCreator = (inv) => (creator === 'all' || inv.creator === creator);
+
+    // فواتير المديونية فقط (لا pending)
+    const debtInvs = invoices.filter(inv => debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+
+    const tbody = document.getElementById('procRows');
+    tbody.innerHTML = '';
+
+    if (debtInvs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:40px; color:#999">لا توجد فواتير مديونية للعرض<br><small>قم بنقل الفواتير للمديونية أولاً من الصفحة الرئيسية</small></td></tr>`;
+    } else {
+        debtInvs.forEach((inv, idx) => {
+            const overrideVal = priceOverrides[inv.id];
+            const exportAmount = overrideVal !== undefined ? overrideVal : inv.due;
+            const diff = inv.due - exportAmount;
+            const isEdited = overrideVal !== undefined && overrideVal !== inv.due;
+
+            tbody.innerHTML += `
+            <tr id="proc-row-${inv.id}" class="${isEdited ? 'edited' : ''}">
+                <td style="text-align:center; color:#aaa; font-size:0.85em">${idx + 1}</td>
+                <td style="color:var(--p); font-weight:bold">${inv.ref}</td>
+                <td>${inv.customer}</td>
+                <td>${inv.date}</td>
+                <td style="color:#c0392b">${inv.dueDate || '-'}</td>
+                <td style="font-weight:bold; color:#c0392b">${inv.due.toLocaleString()}</td>
+                <td>
+                    <input type="number" 
+                        class="proc-amount-input ${isEdited ? 'changed' : ''}"
+                        id="inp-${inv.id}"
+                        value="${exportAmount}"
+                        min="0"
+                        max="${inv.due}"
+                        step="0.01"
+                        oninput="updateProcAmount(${inv.id}, ${inv.due}, this.value)"
+                        onfocus="this.select()"
+                    >
+                </td>
+                <td class="proc-diff-cell ${diff === 0 ? 'zero' : ''}" id="diff-${inv.id}">
+                    ${diff > 0 ? diff.toLocaleString() : '—'}
+                </td>
+                <td style="text-align:center">
+                    ${isEdited ? `<button onclick="resetProcRow(${inv.id}, ${inv.due})" style="background:#fff; color:#e67e22; border:1px solid #e67e22; padding:4px 8px; font-size:0.8em; border-radius:5px" title="إعادة للقيمة الأصلية"><i class="fas fa-undo"></i></button>` : `<span style="color:#ddd">—</span>`}
+                </td>
+            </tr>`;
+        });
+    }
+    updateProcSummary(debtInvs, creator);
+}
+
+function updateProcAmount(invId, originalDue, newVal) {
+    let val = parseFloat(newVal);
+    if (isNaN(val) || val < 0) val = 0;
+    if (val > originalDue) val = originalDue;
+
+    priceOverrides[invId] = val;
+
+    const diff = originalDue - val;
+    const isEdited = val !== originalDue;
+
+    // تحديث الخلية الفارق
+    const diffCell = document.getElementById(`diff-${invId}`);
+    if (diffCell) {
+        diffCell.className = `proc-diff-cell ${diff === 0 ? 'zero' : ''}`;
+        diffCell.innerText = diff > 0 ? diff.toLocaleString() : '—';
+    }
+
+    // تلوين الصف
+    const row = document.getElementById(`proc-row-${invId}`);
+    if (row) row.className = isEdited ? 'edited' : '';
+
+    // تلوين الحقل
+    const inp = document.getElementById(`inp-${invId}`);
+    if (inp) {
+        inp.className = `proc-amount-input ${isEdited ? 'changed' : ''}`;
+        inp.value = val;
+    }
+
+    // تحديث زر الإعادة بدون إعادة رسم الجدول كله
+    const td = row?.lastElementChild;
+    if (td) {
+        td.innerHTML = isEdited
+            ? `<button onclick="resetProcRow(${invId}, ${originalDue})" style="background:#fff; color:#e67e22; border:1px solid #e67e22; padding:4px 8px; font-size:0.8em; border-radius:5px" title="إعادة للقيمة الأصلية"><i class="fas fa-undo"></i></button>`
+            : `<span style="color:#ddd">—</span>`;
+    }
+
+    // تحديث الملخص
+    const creator = document.getElementById('creatorFilter').value;
+    const isActive = (inv) => (inv.status !== 'Paid' && inv.status !== 'Voided' && inv.status !== 'Draft' && inv.due > 0);
+    const isInvCreator = (inv) => (creator === 'all' || inv.creator === creator);
+    const debtInvs = invoices.filter(inv => debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+    updateProcSummary(debtInvs, creator);
+}
+
+function resetProcRow(invId, originalDue) {
+    delete priceOverrides[invId];
+    const inp = document.getElementById(`inp-${invId}`);
+    if (inp) inp.value = originalDue;
+    updateProcAmount(invId, originalDue, originalDue);
+}
+
+function updateProcSummary(debtInvs, creator) {
+    // حساب الإجماليات بالأسعار المعدّلة
+    let totalDebtExport = 0;
+    let totalDiffPending = 0;
+    debtInvs.forEach(inv => {
+        const exportAmt = priceOverrides[inv.id] !== undefined ? priceOverrides[inv.id] : inv.due;
+        totalDebtExport += exportAmt;
+        totalDiffPending += (inv.due - exportAmt);
+    });
+
+    // الانتظار الأصلي
+    const isActive = (inv) => (inv.status !== 'Paid' && inv.status !== 'Voided' && inv.status !== 'Draft' && inv.due > 0);
+    const isInvCreator = (inv) => (creator === 'all' || inv.creator === creator);
+    const origPendingInvs = invoices.filter(inv => pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+    const totalOrigPending = origPendingInvs.reduce((a, b) => a + b.due, 0);
+
+    // التسويات والمصروفات
+    const filteredAdj = adjustments.filter(a => creator === 'all' || a.creator === creator);
+    let adjPlus = 0, adjMinus = 0;
+    filteredAdj.forEach(a => { if (a.type === 'plus') adjPlus += a.amount; else adjMinus += a.amount; });
+    const adjNet = adjPlus - adjMinus;
+    const filteredExp = expenses.filter(e => creator === 'all' || e.creator === creator);
+    const totalExp = filteredExp.reduce((a, b) => a + b.amount, 0);
+    const net = totalDebtExport + adjNet - totalExp;
+
+    document.getElementById('procSumDebt').innerText = totalDebtExport.toLocaleString();
+    document.getElementById('procSumPendingDiff').innerText = totalDiffPending > 0 ? totalDiffPending.toLocaleString() : '—';
+    document.getElementById('procSumPendingOrig').innerText = totalOrigPending.toLocaleString();
+    document.getElementById('procSumAdj').innerText = (adjNet >= 0 ? '+' : '') + adjNet.toLocaleString();
+    document.getElementById('procSumExp').innerText = totalExp.toLocaleString();
+    document.getElementById('procSumNet').innerText = net.toLocaleString();
+}
+
+function exportFromProcessing() {
+    const creator = document.getElementById('creatorFilter').value;
+    const creatorName = creator === 'all' ? 'الكل' : (nicknames[creator] || creator);
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    const isActive = (inv) => (inv.status !== 'Paid' && inv.status !== 'Voided' && inv.status !== 'Draft' && inv.due > 0);
+    const isInvCreator = (inv) => (creator === 'all' || inv.creator === creator);
+
+    // فواتير المديونية مع تطبيق التعديلات
+    const rawDebtInvs = invoices.filter(inv => debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+    const exportDebtInvs = rawDebtInvs.map(inv => {
+        const override = priceOverrides[inv.id];
+        return override !== undefined ? { ...inv, due: override } : inv;
+    }).filter(inv => inv.due > 0);
+
+    // فواتير الانتظار الأصلية
+    const origPendingInvs = invoices.filter(inv => pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+
+    // إضافة الفروق كفواتير انتظار وهمية
+    const diffEntries = rawDebtInvs
+        .filter(inv => priceOverrides[inv.id] !== undefined && (inv.due - priceOverrides[inv.id]) > 0)
+        .map(inv => ({
+            ...inv,
+            due: inv.due - priceOverrides[inv.id],
+            ref: inv.ref + ' [باقي]',
+        }));
+
+    const allPendingForExport = [...origPendingInvs, ...diffEntries];
+
+    const filteredExpenses = expenses.filter(e => creator === 'all' || e.creator === creator);
+    const filteredAdjustments = adjustments.filter(a => creator === 'all' || a.creator === creator);
+    const delayedInvoices = invoices.filter(inv => inv.is_delayed && !debtIds.includes(inv.id) && !pendingIds.includes(inv.id) && isInvCreator(inv) && isActive(inv));
+
+    const totalDebtExport = exportDebtInvs.reduce((a, b) => a + b.due, 0);
+    let adjPlus = 0, adjMinus = 0;
+    filteredAdjustments.forEach(a => { if (a.type === 'plus') adjPlus += a.amount; else adjMinus += a.amount; });
+    const adjNet = adjPlus - adjMinus;
+    const totalExp = filteredExpenses.reduce((a, b) => a + b.amount, 0);
+    const net = totalDebtExport + adjNet - totalExp;
+    const totalPending = allPendingForExport.reduce((a, b) => a + b.due, 0);
+
+    const stats = { debt: totalDebtExport, expenses: totalExp, net, pending: totalPending, adjNet, adjPlus, adjMinus };
+    generateColoredExcel(creatorName, exportDebtInvs, filteredExpenses, filteredAdjustments, delayedInvoices, allPendingForExport, stats, dateStr);
+}
+
+// تشغيل النظام
+init();
+</script>
+</body>
+</html>
