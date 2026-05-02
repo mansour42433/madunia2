@@ -594,7 +594,7 @@ function updateCreatorsList(){
     creators.forEach(c=>{ const n=nicknames[c]||c; s.innerHTML+=`<option value="${c}">${n}</option>`; });
     s.value=current;
     const nickRows=document.getElementById("nickRows");
-    if(nickRows && currentTab === 'nicks'){ nickRows.innerHTML=""; creators.forEach(c=>{ const val=nicknames[c]||""; nickRows.innerHTML+=`<div style="margin-bottom:10px; display:flex; align-items:center; gap:10px; background:#f9f9f9; padding:10px; border-radius:5px;"><span style="width:200px; font-weight:bold;">${c}</span><input type="text" placeholder="الاسم المختصر" value="${val}" onchange="saveNick('${c}', this.value)" style="flex:1"></div>`; }); }
+    if(nickRows && currentTab === 'nicks'){ nickRows.innerHTML=""; creators.forEach(c=>{ const val=nicknames[c]||""; nickRows.innerHTML+=`<div style="margin-bottom:10px; display:flex; align-items:center; gap:10px; background:#f9f9f9; padding:15px; border-radius:8px; border: 1px solid #eee;"><span style="width:200px; font-weight:bold; color:var(--d)"><i class="fas fa-user"></i> ${c}</span><input type="text" placeholder="الاسم المختصر" value="${val}" onchange="saveNick('${c}', this.value)" style="flex:1"><button onclick="publishToMandoub('${c}')" style="background:#2980b9; padding:10px 20px;"><i class="fas fa-sync-alt"></i> إرسال وتحديث تطبيق المندوب</button></div>`; }); }
 }
 function saveNick(creator, val){ if(val) nicknames[creator]=val; else delete nicknames[creator]; localStorage.setItem(STORAGE.NICKS,JSON.stringify(nicknames)); updateCreatorsList(); }
 
@@ -1062,6 +1062,34 @@ function exportFromProcessing() {
 
     const stats = { debt: totalDebtExport, expenses: totalExp, net, pending: totalPending, adjNet, adjPlus, adjMinus };
     generateColoredExcel(creatorName, exportDebtInvs, filteredExpenses, filteredAdjustments, delayedInvoices, allPendingForExport, stats, dateStr);
+}
+
+// --- دالة إرسال المديونية لتطبيق المندوب ---
+async function publishToMandoub(mandoubEmail) {
+    if(!confirm(`هل أنت متأكد من إرسال المديونية وتحديث تطبيق المندوب: ${mandoubEmail}؟`)) return;
+    
+    // تغيير شكل الزر للمؤشر
+    const btn = event.currentTarget;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
+    btn.disabled = true;
+    try {
+        const response = await fetch('/api/publish_to_app', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mandoub_id: mandoubEmail }) // نرسل إيميل المندوب
+        });
+        if(response.ok) {
+            alert("✅ تم إرسال المديونية لتطبيق المندوب بنجاح! سيراها عند فتح تطبيقه.");
+        } else {
+            alert("❌ حدث خطأ أثناء الإرسال.");
+        }
+    } catch (e) {
+        alert("❌ فشل الاتصال بالخادم.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 
 // --- نظام إدارة طلبات المناديب ---
